@@ -641,3 +641,251 @@ describe('Shield.patterns()', () => {
     globalThis.fetch = undefined;
   });
 });
+
+// ─── Edge-Case Tests ─────────────────────────────────────────────
+
+describe('scanBatch edge cases', () => {
+  it('should return empty array for empty input', async () => {
+    const shield = new Shield('cgs_test');
+    const results = await shield.scanBatch([]);
+    assert.deepEqual(results, []);
+  });
+
+  it('should handle single text', async () => {
+    globalThis.fetch = mock.fn(async () => ({
+      status: 200,
+      json: async () => ({
+        clean: true,
+        risk_score: 0,
+        severity: 'CLEAN',
+        findings_count: 0,
+        findings: [],
+      }),
+    }));
+
+    const shield = new Shield('cgs_test');
+    const results = await shield.scanBatch(['single text']);
+    assert.equal(results.length, 1);
+    assert.equal(results[0].clean, true);
+
+    globalThis.fetch = undefined;
+  });
+});
+
+describe('scan default source', () => {
+  it('should send source=sdk by default', async () => {
+    let capturedBody;
+    globalThis.fetch = mock.fn(async (url, opts) => {
+      capturedBody = JSON.parse(opts.body);
+      return {
+        status: 200,
+        json: async () => ({ clean: true, risk_score: 0, severity: 'CLEAN', findings_count: 0 }),
+      };
+    });
+
+    const shield = new Shield('cgs_test');
+    await shield.scan('hello');
+
+    assert.equal(capturedBody.source, 'sdk');
+    globalThis.fetch = undefined;
+  });
+});
+
+describe('timeout handling', () => {
+  it('should throw ShieldError on timeout in _request', async () => {
+    const abortErr = new DOMException('The operation was aborted', 'AbortError');
+    globalThis.fetch = mock.fn(async () => { throw abortErr; });
+
+    const shield = new Shield('cgs_test', { timeout: 100 });
+    await assert.rejects(
+      () => shield.scan('test'),
+      (err) => {
+        assert(err instanceof ShieldError);
+        assert(err.message.includes('timed out'));
+        return true;
+      }
+    );
+
+    globalThis.fetch = undefined;
+  });
+
+  it('should throw ShieldError on timeout in health()', async () => {
+    const abortErr = new DOMException('The operation was aborted', 'AbortError');
+    globalThis.fetch = mock.fn(async () => { throw abortErr; });
+
+    const shield = new Shield('cgs_test', { timeout: 100 });
+    await assert.rejects(
+      () => shield.health(),
+      (err) => {
+        assert(err instanceof ShieldError);
+        assert(err.message.includes('timed out'));
+        return true;
+      }
+    );
+
+    globalThis.fetch = undefined;
+  });
+});
+
+describe('non-JSON error responses', () => {
+  it('should handle non-JSON 500 response', async () => {
+    globalThis.fetch = mock.fn(async () => ({
+      status: 500,
+      json: async () => { throw new Error('not json'); },
+    }));
+
+    const shield = new Shield('cgs_test');
+    await assert.rejects(
+      () => shield.scan('test'),
+      (err) => {
+        assert(err instanceof ShieldError);
+        assert.equal(err.message, 'HTTP 500');
+        assert.equal(err.statusCode, 500);
+        return true;
+      }
+    );
+
+    globalThis.fetch = undefined;
+  });
+
+  it('should handle non-JSON 401 response', async () => {
+    globalThis.fetch = mock.fn(async () => ({
+      status: 401,
+      json: async () => { throw new Error('not json'); },
+    }));
+
+    const shield = new Shield('cgs_test');
+    await assert.rejects(
+      () => shield.scan('test'),
+      (err) => {
+        assert(err instanceof AuthenticationError);
+        assert.equal(err.message, 'HTTP 401');
+        return true;
+      }
+    );
+
+    globalThis.fetch = undefined;
+  });
+});
+
+describe('403 status code', () => {
+  it('should throw AuthenticationError on 403', async () => {
+    globalThis.fetch = mock.fn(async () => ({
+      status: 403,
+      json: async () => ({ message: 'Forbidden' }),
+    }));
+
+    const shield = new Shield('cgs_test');
+    await assert.rejects(
+      () => shield.scan('test'),
+      (err) => {
+        assert(err instanceof AuthenticationError);
+        assert.equal(err.statusCode, 403);
+        assert.equal(err.message, 'Forbidden');
+        return true;
+      }
+    );
+
+    globalThis.fetch = undefined;
+  });
+});
+
+describe('usage without last_30_days', () => {
+  it('should use defaults when last_30_days is missing', async () => {
+    globalThis.fetch = mock.fn(async () => ({
+      status: 200,
+      json: async () => ({
+        tier: 'free',
+        tier_name: 'Free',
+        daily_limit: 100,
+        today_used: 5,
+        today_remaining: 95,
+      }),
+    }));
+
+    const shield = new Shield('cgs_test');
+    const usage = await shield.usage();
+
+    assert.equal(usage.totalRequests, 0);
+    assert.equal(usage.totalFindings, 0);
+    assert.equal(usage.avgResponseTimeMs, 0);
+
+    globalThis.fetch = undefined;
+  });
+});
+
+describe('health network error', () => {
+  it('should wrap network errors in ShieldError', async () => {
+    globalThis.fetch = mock.fn(async () => {
+      throw new TypeError('fetch failed');
+    });
+
+    const shield = new Shield('cgs_test');
+    await assert.rejects(
+      () => shield.health(),
+      (err) => {
+        assert(err instanceof ShieldError);
+        assert(err.message.includes('Cannot connect'));
+        return true;
+      }
+    );
+
+    globalThis.fetch = undefined;
+  });
+});
+
+describe('scan response with missing fields', () => {
+  it('should use defaults for missing response fields', async () => {
+    globalThis.fetch = mock.fn(async () => ({
+      status: 200,
+      json: async () => ({}),
+    }));
+
+    const shield = new Shield('cgs_test');
+    const result = await shield.scan('test');
+
+    assert.equal(result.clean, true);
+    assert.equal(result.riskScore, 0);
+    assert.equal(result.severity, 'CLEAN');
+    assert.equal(result.findingsCount, 0);
+    assert.deepEqual(result.findings, []);
+    assert.equal(result.scanTimeMs, 0);
+
+    globalThis.fetch = undefined;
+  });
+
+  it('should handle findings with missing optional fields', async () => {
+    globalThis.fetch = mock.fn(async () => ({
+      status: 200,
+      json: async () => ({
+        clean: false,
+        risk_score: 5,
+        severity: 'MEDIUM',
+        findings_count: 1,
+        findings: [{ pattern_name: 'Test' }],
+      }),
+    }));
+
+    const shield = new Shield('cgs_test');
+    const result = await shield.scan('test');
+
+    assert.equal(result.findings.length, 1);
+    assert.equal(result.findings[0].patternName, 'Test');
+    assert.equal(result.findings[0].severity, '');
+    assert.equal(result.findings[0].category, '');
+    assert.equal(result.findings[0].matchedText, '');
+    assert.equal(result.findings[0].lineNumber, 0);
+    assert.equal(result.findings[0].description, '');
+
+    globalThis.fetch = undefined;
+  });
+});
+
+describe('Shield with short API key', () => {
+  it('should handle toString with minimum valid key', () => {
+    const shield = new Shield('cgs_x');
+    const str = shield.toString();
+    assert(str.includes('cgs_'));
+    assert(str.includes(shield.baseUrl));
+  });
+});
