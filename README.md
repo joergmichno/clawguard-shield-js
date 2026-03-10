@@ -124,6 +124,15 @@ try {
 }
 ```
 
+## Examples
+
+See the [`examples/`](examples/) folder for ready-to-run integrations:
+
+- **[basic-scan.js](examples/basic-scan.js)** — Scan a single input
+- **[express-middleware.js](examples/express-middleware.js)** — Express.js middleware that scans all request bodies
+- **[batch-scan.js](examples/batch-scan.js)** — Scan multiple inputs in parallel
+- **[error-handling.js](examples/error-handling.js)** — Handle all error types gracefully
+
 ## Get an API Key
 
 1. Visit [prompttools.co](https://prompttools.co)
@@ -133,6 +142,7 @@ try {
 
 - [ClawGuard (Open Source Scanner)](https://github.com/joergmichno/clawguard)
 - [Python SDK](https://github.com/joergmichno/clawguard-shield-python)
+- [MCP Server (Claude Desktop / Cursor)](https://github.com/joergmichno/clawguard-mcp)
 - [GitHub Action](https://github.com/joergmichno/clawguard-scan-action)
 - [Interactive Playground](https://prompttools.co)
 
