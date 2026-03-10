@@ -1,0 +1,13 @@
+{
+  "name": "clawguard-showcase",
+  "version": "1.0.0",
+  "description": "Interactive demo of ClawGuard Shield prompt injection detection",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "clawguard-shield": "^0.1.0",
+    "express": "^4.21.0"
+  }
+}
