@@ -85,7 +85,7 @@ Check API health (no auth required).
 
 ```javascript
 const health = await shield.health();
-// { status: "healthy", version: "1.0.0", patterns_count: 42 }
+// { status: "healthy", version: "1.0.0", patterns_count: 132 }
 ```
 
 ### `shield.patterns()`
@@ -94,7 +94,7 @@ List all detection patterns.
 
 ```javascript
 const patterns = await shield.patterns();
-// { total_patterns: 42, categories: { prompt_injection: 15, ... } }
+// { total_patterns: 132, categories: { prompt_injection: 15, ... } }
 ```
 
 ### `shield.usage()`
