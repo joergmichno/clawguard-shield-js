@@ -11,7 +11,7 @@ A lightweight, zero-dependency JavaScript client for the [ClawGuard Shield API](
 - **Zero dependencies** — uses native `fetch` (Node.js 18+, browsers, Deno, Bun)
 - **TypeScript support** — full type declarations included
 - **Dual format** — ESM + CommonJS
-- **42 detection patterns** across 5 threat categories
+- **225 detection patterns** across all major threat categories
 - **~6ms average latency** — no LLM dependency
 
 ## Installation
@@ -85,7 +85,7 @@ Check API health (no auth required).
 
 ```javascript
 const health = await shield.health();
-// { status: "healthy", version: "1.0.0", patterns_count: 132 }
+// { status: "healthy", version: "1.0.0", patterns_count: 225 }
 ```
 
 ### `shield.patterns()`
@@ -94,7 +94,7 @@ List all detection patterns.
 
 ```javascript
 const patterns = await shield.patterns();
-// { total_patterns: 132, categories: { prompt_injection: 15, ... } }
+// { total_patterns: 225, categories: { prompt_injection: 15, ... } }
 ```
 
 ### `shield.usage()`
